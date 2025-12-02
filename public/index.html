@@ -33,6 +33,11 @@
         <video id="videoPlayer" controls>
           Your browser does not support HTML5 video.
         </video>
+        <!-- Piece download map -->
+        <div id="pieceMapContainer" class="piece-map-container">
+          <canvas id="pieceMap" class="piece-map"></canvas>
+          <div id="playbackMarker" class="playback-marker"></div>
+        </div>
       </div>
 
       <!-- Player Controls -->
@@ -91,7 +96,8 @@
           <span id="progress" class="stat-value">0 MB / 0 MB (0%)</span>
         </div>
         <div class="stat-item">
-          <span class="stat-label">Buffer Health</span>
+          <span class="stat-label">Buffer Ahead</span>
+          <span id="bufferLabel" class="stat-value buffer-label">0s ahead</span>
           <div id="bufferHealth" class="buffer-bar">
             <div id="bufferFill" class="buffer-fill"></div>
           </div>

@@ -104,6 +104,62 @@ function destroyCurrentTorrent() {
   });
 }
 
+// Track current playback position for buffer calculation
+let currentPlaybackPosition = { fileIndex: null, bytePosition: 0 };
+
+// Prioritize pieces from a specific byte position for streaming using critical()
+function prioritizePiecesFrom(file, startByte) {
+  if (!currentTorrent || !currentTorrent.pieces) return;
+
+  const pieceLength = currentTorrent.pieceLength;
+  const fileOffset = file.offset; // Byte offset of file within torrent
+  const absoluteStart = fileOffset + startByte;
+  const fileEnd = fileOffset + file.length;
+
+  // Calculate piece indices
+  const startPiece = Math.floor(absoluteStart / pieceLength);
+  const endPiece = Math.floor(fileEnd / pieceLength);
+
+  // Mark critical pieces - enough for ~30 seconds of buffer ahead
+  // Assuming ~5MB per 30 seconds of video at decent quality
+  const piecesToPrioritize = Math.min(Math.ceil(5 * 1024 * 1024 / pieceLength), 50);
+  const criticalEnd = Math.min(startPiece + piecesToPrioritize, endPiece);
+
+  // Use critical() to mark these pieces for immediate download
+  currentTorrent.critical(startPiece, criticalEnd);
+
+  console.log(`Marked pieces ${startPiece}-${criticalEnd} as critical (${criticalEnd - startPiece + 1} pieces)`);
+}
+
+// Calculate how many bytes are buffered ahead from current position
+function getBufferAhead(file, currentByte) {
+  if (!currentTorrent || !currentTorrent.bitfield) return 0;
+
+  const pieceLength = currentTorrent.pieceLength;
+  const fileOffset = file.offset;
+  const absoluteStart = fileOffset + currentByte;
+  const fileEnd = fileOffset + file.length;
+
+  let bufferedBytes = 0;
+  let currentPiece = Math.floor(absoluteStart / pieceLength);
+  const endPiece = Math.floor(fileEnd / pieceLength);
+
+  // Count consecutive downloaded pieces from current position
+  while (currentPiece <= endPiece && currentTorrent.bitfield.get(currentPiece)) {
+    // Calculate how much of this piece belongs to our range
+    const pieceStart = currentPiece * pieceLength;
+    const pieceEnd = pieceStart + pieceLength;
+
+    const rangeStart = Math.max(pieceStart, absoluteStart);
+    const rangeEnd = Math.min(pieceEnd, fileEnd);
+
+    bufferedBytes += rangeEnd - rangeStart;
+    currentPiece++;
+  }
+
+  return bufferedBytes;
+}
+
 // Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -118,6 +174,26 @@ app.get('/api/status', (req, res) => {
   }
 
   const torrent = currentTorrent;
+
+  // Calculate buffer ahead for current file
+  let bufferAhead = 0;
+  let pieceMap = [];
+  if (currentPlaybackPosition.fileIndex !== null && torrent.files[currentPlaybackPosition.fileIndex]) {
+    const file = torrent.files[currentPlaybackPosition.fileIndex];
+    bufferAhead = getBufferAhead(file, currentPlaybackPosition.bytePosition);
+
+    // Generate piece map for current file (which pieces are downloaded)
+    const pieceLength = torrent.pieceLength;
+    const fileOffset = file.offset;
+    const fileEnd = fileOffset + file.length;
+    const startPiece = Math.floor(fileOffset / pieceLength);
+    const endPiece = Math.floor(fileEnd / pieceLength);
+
+    for (let i = startPiece; i <= endPiece; i++) {
+      pieceMap.push(torrent.bitfield ? torrent.bitfield.get(i) : false);
+    }
+  }
+
   res.json({
     active: true,
     name: torrent.name,
@@ -129,6 +205,10 @@ app.get('/api/status', (req, res) => {
     uploadSpeed: torrent.uploadSpeed,
     numPeers: torrent.numPeers,
     ready: torrent.ready,
+    bufferAhead: bufferAhead,
+    pieceMap: pieceMap,
+    currentPosition: currentPlaybackPosition,
+    pieceLength: torrent.pieceLength,
     files: torrent.files.map((f, index) => ({
       index,
       name: f.name,
@@ -229,6 +309,30 @@ app.get('/api/trackers', (req, res) => {
   });
 });
 
+// API: Update playback position (for piece prioritization)
+app.post('/api/playback-position', (req, res) => {
+  const { fileIndex, currentTime, duration } = req.body;
+
+  if (!currentTorrent || !currentTorrent.ready) {
+    return res.status(404).json({ error: 'No active torrent' });
+  }
+
+  const file = currentTorrent.files[fileIndex];
+  if (!file) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  // Convert time position to byte position (approximate)
+  const bytePosition = duration > 0 ? Math.floor((currentTime / duration) * file.length) : 0;
+
+  currentPlaybackPosition = { fileIndex, bytePosition };
+
+  // Prioritize pieces from this position
+  prioritizePiecesFrom(file, bytePosition);
+
+  res.json({ success: true, bytePosition });
+});
+
 // Stream video file
 app.get('/stream/:fileIndex', (req, res) => {
   if (!currentTorrent || !currentTorrent.ready) {
@@ -259,6 +363,34 @@ app.get('/stream/:fileIndex', (req, res) => {
   };
   const contentType = contentTypes[ext] || 'application/octet-stream';
 
+  // Helper to handle stream with proper cleanup
+  const handleStream = (stream) => {
+    let destroyed = false;
+
+    const cleanup = () => {
+      if (!destroyed) {
+        destroyed = true;
+        stream.destroy();
+      }
+    };
+
+    // Client disconnected (seek, close tab, etc) - this is normal
+    res.on('close', cleanup);
+    res.on('finish', cleanup);
+
+    stream.on('error', (err) => {
+      // Only log unexpected errors, not normal browser disconnects
+      if (!err.message.includes('Writable stream closed') &&
+        !err.message.includes('ECONNRESET') &&
+        !err.message.includes('aborted')) {
+        console.error('Stream error:', err.message);
+      }
+      cleanup();
+    });
+
+    stream.pipe(res);
+  };
+
   if (range) {
     const parts = range.replace(/bytes=/, '').split('-');
     const start = parseInt(parts[0], 10);
@@ -273,12 +405,7 @@ app.get('/stream/:fileIndex', (req, res) => {
     });
 
     const stream = file.createReadStream({ start, end });
-    stream.pipe(res);
-
-    stream.on('error', (err) => {
-      console.error('Stream error:', err.message);
-      res.end();
-    });
+    handleStream(stream);
   } else {
     res.writeHead(200, {
       'Content-Length': fileSize,
@@ -286,12 +413,7 @@ app.get('/stream/:fileIndex', (req, res) => {
     });
 
     const stream = file.createReadStream();
-    stream.pipe(res);
-
-    stream.on('error', (err) => {
-      console.error('Stream error:', err.message);
-      res.end();
-    });
+    handleStream(stream);
   }
 });
 

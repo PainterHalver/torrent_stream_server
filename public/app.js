@@ -21,6 +21,9 @@ const progressEl = document.getElementById('progress');
 const bufferFill = document.getElementById('bufferFill');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const loadingText = document.getElementById('loadingText');
+const pieceMapCanvas = document.getElementById('pieceMap');
+const playbackMarker = document.getElementById('playbackMarker');
+const pieceMapCtx = pieceMapCanvas.getContext('2d');
 
 // Video file extensions
 const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.webm', '.mov', '.wmv', '.flv', '.m4v'];
@@ -64,6 +67,52 @@ function hideLoading() {
   loadingOverlay.classList.add('hidden');
 }
 
+// Render piece map visualization
+function renderPieceMap(pieceMap) {
+  if (!pieceMap || pieceMap.length === 0) return;
+
+  const canvas = pieceMapCanvas;
+  const ctx = pieceMapCtx;
+
+  // Set canvas size to match container
+  const container = canvas.parentElement;
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+
+  // Set actual canvas resolution
+  canvas.width = width * window.devicePixelRatio;
+  canvas.height = height * window.devicePixelRatio;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+  // Clear canvas
+  ctx.clearRect(0, 0, width, height);
+
+  // Calculate piece width
+  const pieceWidth = width / pieceMap.length;
+
+  // Draw pieces
+  pieceMap.forEach((downloaded, index) => {
+    const x = index * pieceWidth;
+
+    if (downloaded) {
+      // Downloaded - cyan/green gradient
+      ctx.fillStyle = '#00d4ff';
+    } else {
+      // Not downloaded - dark
+      ctx.fillStyle = '#1a1a2e';
+    }
+
+    ctx.fillRect(x, 0, Math.ceil(pieceWidth), height);
+  });
+}
+
+// Update playback marker position
+function updatePlaybackMarker() {
+  if (!videoPlayer.duration) return;
+  const percent = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+  playbackMarker.style.left = `${percent}%`;
+}
+
 // API Functions
 async function fetchStatus() {
   try {
@@ -92,6 +141,18 @@ async function deleteTorrent() {
 async function reloadTrackers() {
   const res = await fetch('/api/trackers/reload', { method: 'POST' });
   return await res.json();
+}
+
+async function updatePlaybackPosition(fileIndex, currentTime, duration) {
+  try {
+    await fetch('/api/playback-position', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileIndex, currentTime, duration })
+    });
+  } catch (err) {
+    // Silently fail - not critical
+  }
 }
 
 // UI Functions
@@ -159,8 +220,33 @@ function updateStats(status) {
   const percent = status.total > 0 ? ((status.downloaded / status.total) * 100).toFixed(1) : 0;
   progressEl.textContent = `${downloaded} / ${total} (${percent}%)`;
 
-  // Buffer health - based on how much of current file is downloaded ahead of playback
-  if (currentFileIndex !== null && status.files && status.files[currentFileIndex]) {
+  // Render piece map if available
+  if (status.pieceMap && status.pieceMap.length > 0) {
+    renderPieceMap(status.pieceMap);
+  }
+
+  // Buffer health - show how many seconds are buffered ahead
+  if (currentFileIndex !== null && status.bufferAhead !== undefined && videoPlayer.duration) {
+    const file = status.files[currentFileIndex];
+    // Estimate seconds buffered based on byte position
+    const bytesPerSecond = file.length / videoPlayer.duration;
+    const secondsBuffered = bytesPerSecond > 0 ? status.bufferAhead / bytesPerSecond : 0;
+
+    // Update buffer bar (cap at 60 seconds = 100%)
+    const bufferPercent = Math.min((secondsBuffered / 60) * 100, 100);
+    bufferFill.style.width = `${bufferPercent}%`;
+
+    // Update buffer label
+    const bufferLabel = document.getElementById('bufferLabel');
+    if (bufferLabel) {
+      if (secondsBuffered > 60) {
+        bufferLabel.textContent = `${Math.floor(secondsBuffered / 60)}m ${Math.floor(secondsBuffered % 60)}s ahead`;
+      } else {
+        bufferLabel.textContent = `${Math.floor(secondsBuffered)}s ahead`;
+      }
+    }
+  } else if (currentFileIndex !== null && status.files && status.files[currentFileIndex]) {
+    // Fallback to file progress if buffer info not available
     const file = status.files[currentFileIndex];
     const fileProgress = (file.progress * 100).toFixed(0);
     bufferFill.style.width = `${fileProgress}%`;
@@ -277,13 +363,37 @@ document.querySelectorAll('.skip-btn').forEach(btn => {
   });
 });
 
+// Track last reported position to avoid spamming server
+let lastReportedTime = 0;
+
 // Video player time update
 videoPlayer.addEventListener('timeupdate', () => {
   currentTimeEl.textContent = formatTime(videoPlayer.currentTime);
+
+  // Update playback marker on piece map
+  updatePlaybackMarker();
+
+  // Report position to server every 5 seconds or on significant change
+  if (currentFileIndex !== null && Math.abs(videoPlayer.currentTime - lastReportedTime) > 5) {
+    lastReportedTime = videoPlayer.currentTime;
+    updatePlaybackPosition(currentFileIndex, videoPlayer.currentTime, videoPlayer.duration);
+  }
+});
+
+// Report position immediately when seeking
+videoPlayer.addEventListener('seeking', () => {
+  if (currentFileIndex !== null) {
+    lastReportedTime = videoPlayer.currentTime;
+    updatePlaybackPosition(currentFileIndex, videoPlayer.currentTime, videoPlayer.duration);
+  }
 });
 
 videoPlayer.addEventListener('loadedmetadata', () => {
   durationEl.textContent = formatTime(videoPlayer.duration);
+  // Report initial position
+  if (currentFileIndex !== null) {
+    updatePlaybackPosition(currentFileIndex, 0, videoPlayer.duration);
+  }
 });
 
 videoPlayer.addEventListener('durationchange', () => {
