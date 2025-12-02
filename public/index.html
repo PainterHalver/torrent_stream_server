@@ -44,12 +44,16 @@
 
       <!-- Skip Buttons -->
       <div class="skip-buttons">
-        <button class="skip-btn" data-skip="-600">-10m</button>
-        <button class="skip-btn" data-skip="-60">-1m</button>
-        <button class="skip-btn" data-skip="-10">-10s</button>
-        <button class="skip-btn" data-skip="10">+10s</button>
-        <button class="skip-btn" data-skip="60">+1m</button>
-        <button class="skip-btn" data-skip="600">+10m</button>
+        <div class="skip-group skip-backward">
+          <button class="skip-btn" data-skip="-600">-10m</button>
+          <button class="skip-btn" data-skip="-60">-1m</button>
+          <button class="skip-btn" data-skip="-10">-10s</button>
+        </div>
+        <div class="skip-group skip-forward">
+          <button class="skip-btn" data-skip="10">+10s</button>
+          <button class="skip-btn" data-skip="60">+1m</button>
+          <button class="skip-btn" data-skip="600">+10m</button>
+        </div>
       </div>
 
       <!-- External Player Links -->

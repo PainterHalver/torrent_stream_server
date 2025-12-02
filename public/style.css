@@ -180,10 +180,13 @@ header h1 {
 /* Skip Buttons */
 .skip-buttons {
   display: flex;
-  justify-content: center;
-  gap: 8px;
+  justify-content: space-between;
   margin: 15px 0;
-  flex-wrap: wrap;
+}
+
+.skip-group {
+  display: flex;
+  gap: 6px;
 }
 
 .skip-btn {
@@ -435,22 +438,54 @@ header h1 {
     width: 100%;
   }
 
+  /* Full-width player on mobile */
+  .player-section {
+    margin-left: -10px;
+    margin-right: -10px;
+    border-radius: 0;
+    padding: 0;
+    padding-bottom: 15px;
+  }
+
+  .player-section .skip-buttons,
+  .player-section .external-links {
+    padding: 0 10px;
+  }
+
+  .video-container {
+    border-radius: 0;
+  }
+
+  .plyr--video {
+    border-radius: 0;
+  }
+
+  .piece-map-container {
+    border-radius: 0;
+    margin-top: 0;
+  }
+
   .skip-buttons {
-    gap: 5px;
+    margin-top: 15px;
+  }
+
+  .skip-group {
+    gap: 4px;
   }
 
   .skip-btn {
-    padding: 8px 12px;
+    padding: 10px 12px;
     font-size: 0.85rem;
   }
 
   .external-links {
-    flex-direction: column;
+    gap: 8px;
+    margin-top: 20px;
   }
 
   .btn-link {
-    width: 100%;
-    text-align: center;
+    padding: 10px 14px;
+    font-size: 0.85rem;
   }
 
   .section-header {
