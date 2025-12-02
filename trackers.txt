@@ -1,0 +1,6 @@
+# Custom trackers - one per line
+# Empty lines and lines starting with # are ignored
+
+udp://tracker.opentrackr.org:1337/announce
+udp://open.demonii.com:1337/announce
+udp://tracker.openbittorrent.com:6969/announce

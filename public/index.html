@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Torrent Stream Server</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>🎬 Torrent Stream</h1>
+    </header>
+
+    <!-- Input Section -->
+    <section class="input-section">
+      <div class="input-group">
+        <input type="text" id="magnetInput" placeholder="Enter magnet link or info hash...">
+        <button id="addBtn">Add</button>
+      </div>
+      <div class="tracker-controls">
+        <button id="loadTrackersBtn">🔄 Reload Trackers</button>
+        <span id="trackerCount">Trackers: 0</span>
+      </div>
+    </section>
+
+    <!-- Video Player Section -->
+    <section id="playerSection" class="player-section hidden">
+      <div class="video-container">
+        <video id="videoPlayer" controls>
+          Your browser does not support HTML5 video.
+        </video>
+      </div>
+
+      <!-- Player Controls -->
+      <div class="player-controls">
+        <div class="time-display">
+          <span id="currentTime">00:00:00</span>
+          <span>/</span>
+          <span id="duration">00:00:00</span>
+        </div>
+        <div class="control-buttons">
+          <button id="fullscreenBtn">⛶ Fullscreen</button>
+        </div>
+      </div>
+
+      <!-- Skip Buttons -->
+      <div class="skip-buttons">
+        <button class="skip-btn" data-skip="-600">-10m</button>
+        <button class="skip-btn" data-skip="-60">-1m</button>
+        <button class="skip-btn" data-skip="-10">-10s</button>
+        <button class="skip-btn" data-skip="10">+10s</button>
+        <button class="skip-btn" data-skip="60">+1m</button>
+        <button class="skip-btn" data-skip="600">+10m</button>
+      </div>
+
+      <!-- External Player Links -->
+      <div class="external-links">
+        <a id="vlcLink" href="#" class="btn-link">📺 Open in VLC</a>
+        <a id="rawLink" href="#" target="_blank" class="btn-link">🔗 Raw Video</a>
+        <button id="copyLinkBtn" class="btn-link">📋 Copy Link</button>
+      </div>
+    </section>
+
+    <!-- File List Section -->
+    <section id="fileSection" class="file-section hidden">
+      <div class="section-header">
+        <h2>📁 Files</h2>
+        <button id="deleteBtn" class="delete-btn">🗑️ Delete Torrent</button>
+      </div>
+      <div id="fileList" class="file-list"></div>
+    </section>
+
+    <!-- Statistics Section -->
+    <section id="statsSection" class="stats-section hidden">
+      <h2>📊 Statistics</h2>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-label">Download Speed</span>
+          <span id="downloadSpeed" class="stat-value">0 KB/s</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Peers</span>
+          <span id="peers" class="stat-value">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Progress</span>
+          <span id="progress" class="stat-value">0 MB / 0 MB (0%)</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Buffer Health</span>
+          <div id="bufferHealth" class="buffer-bar">
+            <div id="bufferFill" class="buffer-fill"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+      <div class="loading-content">
+        <div class="spinner"></div>
+        <p id="loadingText">Loading metadata...</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
