@@ -122,12 +122,39 @@ header h1 {
   display: block;
 }
 
+/* Plyr Dark Theme Customizations */
+.plyr {
+  --plyr-color-main: #00d4ff;
+  --plyr-video-background: #000;
+  --plyr-menu-background: #1a1a2e;
+  --plyr-menu-color: #eee;
+  --plyr-menu-border-color: #0f3460;
+  --plyr-range-track-height: 5px;
+  --plyr-range-thumb-height: 13px;
+  --plyr-range-thumb-background: #fff;
+  --plyr-progress-loading-background: rgba(15, 52, 96, 0.6);
+  --plyr-video-progress-buffered-background: rgba(0, 212, 255, 0.3);
+}
+
+.plyr--video {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.plyr__control:hover {
+  background: #00d4ff;
+  color: #1a1a2e;
+}
+
 /* Piece Map - download progress visualization */
 .piece-map-container {
   position: relative;
   width: 100%;
-  height: 8px;
-  background: #0f3460;
+  height: 6px;
+  background: #1a1a2e;
+  margin-top: 8px;
+  border-radius: 3px;
+  overflow: hidden;
 }
 
 .piece-map {
@@ -138,9 +165,9 @@ header h1 {
 
 .playback-marker {
   position: absolute;
-  top: -2px;
-  width: 3px;
-  height: 12px;
+  top: -1px;
+  width: 2px;
+  height: 8px;
   background: #fff;
   border-radius: 1px;
   box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
@@ -148,39 +175,6 @@ header h1 {
   left: 0%;
   transition: left 0.1s linear;
   z-index: 1;
-}
-
-.player-controls {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 15px;
-  padding: 10px 0;
-}
-
-.time-display {
-  font-family: monospace;
-  font-size: 1rem;
-  color: #ccc;
-}
-
-.control-buttons {
-  display: flex;
-  gap: 10px;
-}
-
-.control-buttons button {
-  padding: 8px 16px;
-  background: #0f3460;
-  color: #eee;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.control-buttons button:hover {
-  background: #1a4a7a;
 }
 
 /* Skip Buttons */

@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Torrent Stream Server</title>
+  <link rel="stylesheet" href="plyr/plyr.css">
   <link rel="stylesheet" href="style.css">
 </head>
 
@@ -30,26 +31,15 @@
     <!-- Video Player Section -->
     <section id="playerSection" class="player-section hidden">
       <div class="video-container">
-        <video id="videoPlayer" controls>
+        <video id="videoPlayer" playsinline>
           Your browser does not support HTML5 video.
         </video>
-        <!-- Piece download map -->
-        <div id="pieceMapContainer" class="piece-map-container">
-          <canvas id="pieceMap" class="piece-map"></canvas>
-          <div id="playbackMarker" class="playback-marker"></div>
-        </div>
       </div>
 
-      <!-- Player Controls -->
-      <div class="player-controls">
-        <div class="time-display">
-          <span id="currentTime">00:00:00</span>
-          <span>/</span>
-          <span id="duration">00:00:00</span>
-        </div>
-        <div class="control-buttons">
-          <button id="fullscreenBtn">⛶ Fullscreen</button>
-        </div>
+      <!-- Piece download map -->
+      <div id="pieceMapContainer" class="piece-map-container">
+        <canvas id="pieceMap" class="piece-map"></canvas>
+        <div id="playbackMarker" class="playback-marker"></div>
       </div>
 
       <!-- Skip Buttons -->
@@ -114,6 +104,7 @@
     </div>
   </div>
 
+  <script src="plyr/plyr.min.js"></script>
   <script src="app.js"></script>
 </body>
 

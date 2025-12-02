@@ -5,9 +5,6 @@ const loadTrackersBtn = document.getElementById('loadTrackersBtn');
 const trackerCount = document.getElementById('trackerCount');
 const playerSection = document.getElementById('playerSection');
 const videoPlayer = document.getElementById('videoPlayer');
-const currentTimeEl = document.getElementById('currentTime');
-const durationEl = document.getElementById('duration');
-const fullscreenBtn = document.getElementById('fullscreenBtn');
 const vlcLink = document.getElementById('vlcLink');
 const rawLink = document.getElementById('rawLink');
 const copyLinkBtn = document.getElementById('copyLinkBtn');
@@ -31,6 +28,53 @@ const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.webm', '.mov', '.wmv', '.flv
 // State
 let currentFileIndex = null;
 let statusInterval = null;
+let player = null;
+let lastReportedTime = 0;
+
+// Initialize Plyr
+function initPlyr() {
+  player = new Plyr('#videoPlayer', {
+    controls: [
+      'play-large',
+      'rewind',
+      'play',
+      'fast-forward',
+      'progress',
+      'current-time',
+      'duration',
+      'mute',
+      'volume',
+      'fullscreen'
+    ],
+    keyboard: { focused: true, global: true },
+    tooltips: { controls: false, seek: true },
+    seekTime: 10
+  });
+
+  // Track playback position for piece prioritization
+  player.on('timeupdate', () => {
+    updatePlaybackMarker();
+    if (currentFileIndex !== null && Math.abs(player.currentTime - lastReportedTime) > 5) {
+      lastReportedTime = player.currentTime;
+      updatePlaybackPosition(currentFileIndex, player.currentTime, player.duration);
+    }
+  });
+
+  // Report position immediately when seeking
+  player.on('seeking', () => {
+    if (currentFileIndex !== null) {
+      lastReportedTime = player.currentTime;
+      updatePlaybackPosition(currentFileIndex, player.currentTime, player.duration);
+    }
+  });
+
+  // Report initial position
+  player.on('loadedmetadata', () => {
+    if (currentFileIndex !== null) {
+      updatePlaybackPosition(currentFileIndex, 0, player.duration);
+    }
+  });
+}
 
 // Utility Functions
 function formatBytes(bytes) {
@@ -95,11 +139,11 @@ function renderPieceMap(pieceMap) {
     const x = index * pieceWidth;
 
     if (downloaded) {
-      // Downloaded - cyan/green gradient
+      // Downloaded - cyan
       ctx.fillStyle = '#00d4ff';
     } else {
-      // Not downloaded - dark
-      ctx.fillStyle = '#1a1a2e';
+      // Not downloaded - dark blue
+      ctx.fillStyle = '#0f3460';
     }
 
     ctx.fillRect(x, 0, Math.ceil(pieceWidth), height);
@@ -108,8 +152,8 @@ function renderPieceMap(pieceMap) {
 
 // Update playback marker position
 function updatePlaybackMarker() {
-  if (!videoPlayer.duration) return;
-  const percent = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+  if (!player || !player.duration) return;
+  const percent = (player.currentTime / player.duration) * 100;
   playbackMarker.style.left = `${percent}%`;
 }
 
@@ -189,10 +233,11 @@ function playFile(fileIndex) {
   currentFileIndex = fileIndex;
   const streamUrl = getStreamUrl(fileIndex);
 
-  // Update video player
-  videoPlayer.src = streamUrl;
-  videoPlayer.load();
-  videoPlayer.play().catch(err => console.log('Autoplay prevented:', err));
+  // Update Plyr source
+  player.source = {
+    type: 'video',
+    sources: [{ src: streamUrl, type: 'video/mp4' }]
+  };
 
   // Update external links
   vlcLink.href = `vlc://${streamUrl}`;
@@ -200,6 +245,9 @@ function playFile(fileIndex) {
 
   // Show player section
   playerSection.classList.remove('hidden');
+
+  // Start playback
+  player.play().catch(err => console.log('Autoplay prevented:', err));
 
   // Re-render file list to show playing status
   fetchStatus().then(status => {
@@ -226,10 +274,10 @@ function updateStats(status) {
   }
 
   // Buffer health - show how many seconds are buffered ahead
-  if (currentFileIndex !== null && status.bufferAhead !== undefined && videoPlayer.duration) {
+  if (currentFileIndex !== null && status.bufferAhead !== undefined && player && player.duration) {
     const file = status.files[currentFileIndex];
     // Estimate seconds buffered based on byte position
-    const bytesPerSecond = file.length / videoPlayer.duration;
+    const bytesPerSecond = file.length / player.duration;
     const secondsBuffered = bytesPerSecond > 0 ? status.bufferAhead / bytesPerSecond : 0;
 
     // Update buffer bar (cap at 60 seconds = 100%)
@@ -259,7 +307,7 @@ function resetUI() {
   playerSection.classList.add('hidden');
   fileSection.classList.add('hidden');
   statsSection.classList.add('hidden');
-  videoPlayer.src = '';
+  if (player) player.stop();
   currentFileIndex = null;
   fileList.innerHTML = '';
 }
@@ -347,61 +395,20 @@ copyLinkBtn.addEventListener('click', () => {
   });
 });
 
-fullscreenBtn.addEventListener('click', () => {
-  if (videoPlayer.requestFullscreen) {
-    videoPlayer.requestFullscreen();
-  } else if (videoPlayer.webkitRequestFullscreen) {
-    videoPlayer.webkitRequestFullscreen();
-  }
-});
-
 // Skip buttons
 document.querySelectorAll('.skip-btn').forEach(btn => {
   btn.addEventListener('click', () => {
+    if (!player) return;
     const skip = parseInt(btn.dataset.skip, 10);
-    videoPlayer.currentTime = Math.max(0, Math.min(videoPlayer.duration, videoPlayer.currentTime + skip));
+    player.currentTime = Math.max(0, Math.min(player.duration || 0, player.currentTime + skip));
   });
-});
-
-// Track last reported position to avoid spamming server
-let lastReportedTime = 0;
-
-// Video player time update
-videoPlayer.addEventListener('timeupdate', () => {
-  currentTimeEl.textContent = formatTime(videoPlayer.currentTime);
-
-  // Update playback marker on piece map
-  updatePlaybackMarker();
-
-  // Report position to server every 5 seconds or on significant change
-  if (currentFileIndex !== null && Math.abs(videoPlayer.currentTime - lastReportedTime) > 5) {
-    lastReportedTime = videoPlayer.currentTime;
-    updatePlaybackPosition(currentFileIndex, videoPlayer.currentTime, videoPlayer.duration);
-  }
-});
-
-// Report position immediately when seeking
-videoPlayer.addEventListener('seeking', () => {
-  if (currentFileIndex !== null) {
-    lastReportedTime = videoPlayer.currentTime;
-    updatePlaybackPosition(currentFileIndex, videoPlayer.currentTime, videoPlayer.duration);
-  }
-});
-
-videoPlayer.addEventListener('loadedmetadata', () => {
-  durationEl.textContent = formatTime(videoPlayer.duration);
-  // Report initial position
-  if (currentFileIndex !== null) {
-    updatePlaybackPosition(currentFileIndex, 0, videoPlayer.duration);
-  }
-});
-
-videoPlayer.addEventListener('durationchange', () => {
-  durationEl.textContent = formatTime(videoPlayer.duration);
 });
 
 // Initialize
 async function init() {
+  // Initialize Plyr first
+  initPlyr();
+
   const status = await fetchStatus();
 
   if (status) {
