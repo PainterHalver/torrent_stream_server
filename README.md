@@ -2,6 +2,8 @@
 
 Stream torrents directly in your browser. Works on both desktop and mobile.
 
+![Torrent Stream Server Screenshot](public/screenshot.png)
+
 ## Features
 
 - Stream video files from torrents in real-time
