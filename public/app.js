@@ -161,15 +161,15 @@ function updatePlaybackMarker() {
 function setupPieceMapClick() {
   const pieceMapContainer = document.getElementById('pieceMapContainer');
   pieceMapContainer.style.cursor = 'pointer';
-  
+
   pieceMapContainer.addEventListener('click', (e) => {
     if (!player || !player.duration) return;
-    
+
     const rect = pieceMapContainer.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const percent = clickX / rect.width;
     const newTime = percent * player.duration;
-    
+
     player.currentTime = newTime;
   });
 }
@@ -425,7 +425,7 @@ document.querySelectorAll('.skip-btn').forEach(btn => {
 async function init() {
   // Initialize Plyr first
   initPlyr();
-  
+
   // Setup piece map click to seek
   setupPieceMapClick();
 
